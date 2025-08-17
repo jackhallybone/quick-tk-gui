@@ -1,69 +1,67 @@
-import time
 import tkinter as tk
 
 """
-Presets should overwrite:
- - `gui.user_input_var` with the correct tkinter Var type
- - `gui.all_input_widgets` with a list of the current input widgets
+When adding an input UI region, the following GUI attributes must be set:
+- self.current_input_container: tk.Widget
+- self.current_input_var: tk.Variable
+- self.current_input_widgets: set[tk.Widget]
+- self.current_input_keybindings: set[str]
 """
 
 
-def n_button_row(
-    gui,
-    parent,
-    prompt: str,
-    button_bindings: dict[str, bool | int | float | str],
-    keybindings: dict[str, str],
+def _value_to_tk_var(value):
+    """Return the tkinter variable matching the type of the argument."""
+    if isinstance(value, bool):
+        return tk.BooleanVar()
+    if isinstance(value, int):
+        return tk.IntVar()
+    if isinstance(value, float):
+        return tk.DoubleVar()
+    if isinstance(value, str):
+        return tk.StringVar()
+    raise ValueError(f"Unsupported value type: {type(value)}")
+
+
+def add_text(
+    container: tk.Widget,
+    text: str,
+    font: tuple[str, int] = ("Arial", 14),
 ):
-    """Add a labelled row of buttons to the layout."""
+    """Add text to the container frame, centred horizontally and vertically."""
 
-    # Check that all keybindings are bound to buttons that are defined
-    missing_buttons = [
-        btn for btn in keybindings.values() if btn not in button_bindings
-    ]
-    if missing_buttons:
-        raise ValueError(f"Keybindings reference undefined buttons: {missing_buttons}")
+    # Create an outer container that fills the container
+    outer_container = tk.Frame(container)
+    outer_container.pack(expand=True, fill="both")
 
-    # Check that the output types of all the buttons are the same
-    value_types = {type(v) for v in button_bindings.values()}
-    if len(value_types) > 1:
-        raise TypeError(f"Button values must all be the same type, got: {value_types}")
+    # Create an inner container that is in the center of the outer container
+    inner_container = tk.Frame(outer_container)
+    inner_container.place(relx=0.5, rely=0.5, anchor="center")
 
-    # Choose an output type var based on the button output type
-    first_value = next(iter(button_bindings.values()))
-    if isinstance(first_value, bool):
-        gui.user_input_var = tk.BooleanVar()
-    elif isinstance(first_value, int):
-        gui.user_input_var = tk.IntVar()
-    elif isinstance(first_value, float):
-        gui.user_input_var = tk.DoubleVar()
-    elif isinstance(first_value, str):
-        gui.user_input_var = tk.StringVar()
-    else:
-        raise ValueError(
-            f"Button value of type {type(first_value)} is not yet supported"
-        )
+    label = tk.Label(inner_container, text=text, font=font)
+    label.pack(pady=(0, 0))
 
-    def on_click(value):
-        """When the input is enabled, read the button click events."""
-        if gui.input_enabled.get():
-            print("click event", time.time())
-            gui.user_input_var.set(value)
-            gui.user_input_event.set()
 
-    def on_keypress(event):
-        """When the input is enabled, read the keypress events."""
-        if gui.input_enabled.get():
-            key = event.char
-            button = keybindings.get(key)
-            if button is not None:
-                print("key event", time.time())
-                value = button_bindings.get(button)
-                gui.user_input_var.set(value)
-                gui.user_input_event.set()
+def add_n_button_input(
+    gui,
+    container: tk.Widget,
+    prompt: str,
+    buttons: list[dict],
+    prompt_font: tuple[str, int] = ("Arial", 14),
+    button_font: tuple[str, int] = ("Arial", 12),
+    prompt_button_gap: int = 10,
+    button_button_gap: int = 10,
+    button_width: int = 10,
+    button_height: int = 2,
+):
+    """Add a row of buttons to the container frame with a prompt above, all centred horizontally and vertically"""
 
-    # Create an outer container that fills the parent
-    outer_container = tk.Frame(parent)
+    # Check all button values are the same type and set the input var to that type
+    if not all(type(b["value"]) is type(buttons[0]["value"]) for b in buttons):
+        raise TypeError("All button values must be the same type")
+    input_var = _value_to_tk_var(buttons[0]["value"])
+
+    # Create an outer container that fills the container
+    outer_container = tk.Frame(container)
     outer_container.pack(expand=True, fill="both")
 
     # Create an inner container that is in the center of the outer container
@@ -71,29 +69,46 @@ def n_button_row(
     inner_container.place(relx=0.5, rely=0.5, anchor="center")
 
     if prompt:
-        label = tk.Label(inner_container, text=prompt, font=("Arial", 14))
-        label.pack(pady=(0, 5))
+        label = tk.Label(inner_container, text=prompt, font=prompt_font)
+        label.pack(pady=(0, prompt_button_gap))
 
     button_frame = tk.Frame(inner_container)
     button_frame.pack()
 
-    # Create n buttons and bind the click events
-    button_widgets = []
-    for i, (name, value) in enumerate(button_bindings.items()):
+    input_widgets = set()
+    input_keybindings = set()
+
+    for b in buttons:
+
+        # Make and add button
         btn = tk.Button(
             button_frame,
-            text=name,
-            width=10,
-            height=2,
-            font=("Arial", 13),
-            command=lambda value=value: on_click(value),
+            text=b["name"],
+            width=button_width,
+            height=button_height,
+            font=button_font,
+            bg="lightgrey",
+            fg="black",
+            activebackground="lightgrey",
+            activeforeground="black",
         )
-        btn.grid(row=0, column=i, padx=10, pady=10)
-        button_widgets.append(btn)
+        btn.pack(side="left", padx=button_button_gap)
 
-    if keybindings:
+        input_widgets.add(btn)
+
+        # Bind click event
+        btn.config(command=lambda b=btn, v=b["value"]: gui.handle_input(b, v))
+
         # Bind keypress events
-        gui.root.bind("<Key>", on_keypress)
+        for key in b.get("keybindings", []):
+            key_name = f"<KeyPress-{key}>"
+            gui.root.bind(
+                key_name, lambda _, b=btn, v=b["value"]: gui.handle_input(b, v)
+            )
+            input_keybindings.add(key_name)
 
-    # Collect the handles for the input widgets, overwriting any old ones
-    gui.all_input_widgets = button_widgets
+    # Set the GUI variables to keep track of the input
+    gui.current_input_container = container
+    gui.current_input_var = input_var
+    gui.current_input_widgets = input_widgets
+    gui.current_input_keybindings = input_keybindings
