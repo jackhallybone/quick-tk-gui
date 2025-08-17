@@ -90,7 +90,7 @@ def present_trial(gui):
     start_time = time.time()
     value, timestamp = gui.get_user_input()
     response_time = timestamp - start_time
-    print(f"User input: {value} at {timestamp} in {response_time}")
+    print(f"User input: '{value}' at {timestamp} in {response_time}")
 
     # Remove the trial response user input
     gui.on_main_thread(gui.clear_current_input_ui)

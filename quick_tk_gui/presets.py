@@ -71,6 +71,7 @@ def add_n_button_input(
         if str(button["state"]) == "normal":
             gui.current_input_var.set(value)
             gui.user_input_event.set()
+            gui.set_enabled(gui.current_input_widgets, False)
 
     # Check all button values are the same type and set the input var to that type
     if not all(type(b["value"]) is type(buttons[0]["value"]) for b in buttons):
@@ -147,6 +148,7 @@ def add_text_input(
             value = entry.get()
             gui.current_input_var.set(value)
             gui.user_input_event.set()
+            gui.set_enabled(gui.current_input_widgets, False)
 
     input_var = _type_to_tk_var(str)
 
@@ -156,9 +158,13 @@ def add_text_input(
         label = tk.Label(centred_container, text=prompt, font=prompt_font)
         label.pack(pady=(0, vertical_spacing))
 
+    input_widgets = set()
+
     entry = tk.Entry(centred_container, width=entry_width, font=entry_font)
     entry.insert(tk.END, prefill)
     entry.pack(pady=(0, vertical_spacing))
+
+    input_widgets.add(entry)
 
     # Move focus (keyboard input) to the entry box
     entry.focus_set()
@@ -177,7 +183,7 @@ def add_text_input(
     )
     btn.pack(pady=(0, 0))
 
-    input_widgets = {btn}
+    input_widgets.add(btn)
 
     # Bind click event
     btn.config(command=lambda btn=btn, entry=entry: handle_input(gui, btn, entry))
