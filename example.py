@@ -30,13 +30,10 @@ def initial_layout(gui):
     # Save a reference to the content frame
     gui.content_frame = content
 
-    presets.add_n_button_input(
-        gui=gui,
+    presets.add_text_input(
+        gui,
         container=gui.content_frame,
-        prompt="Press START to begin...",
-        buttons=[
-            {"name": "START", "value": True, "keybindings": ["Return"]},
-        ],
+        prompt="Enter your name:",
     )
 
 
@@ -101,9 +98,10 @@ def present_trial(gui):
     return response_time
 
 
-def show_data(data):
+def show_data(data, participant_name):
     """Show data using matplotlib. Matplotlib must be run on the main thread."""
     plt.plot(data)
+    plt.title(f"Responses by '{participant_name}'")
     plt.show()
 
 
@@ -114,7 +112,7 @@ def app_logic(gui):
     """
 
     # Wait until the user has pressed "START" and clear it from the screen
-    gui.get_user_input()
+    participant_name, _ = gui.get_user_input()
     gui.on_main_thread(gui.clear_current_input_ui)
 
     # Prompt the user to choose the number of trials to complete
@@ -127,7 +125,7 @@ def app_logic(gui):
         response_times.append(response_time)
 
     # Display the responses in a plot, which has to run on the main thread
-    gui.on_main_thread(show_data, response_times)
+    gui.on_main_thread(show_data, response_times, participant_name)
 
     # Close the window once complete
     gui.close()

@@ -103,12 +103,6 @@ class GUI:
             # TODO: not all widgets have states
             widget.config(state=state)  # type: ignore[attr-defined]
 
-    def handle_input(self, widget: tk.Widget, value):
-        """Accept user input if the input widget is enabled."""
-        if str(widget["state"]) == "normal":
-            self.current_input_var.set(value)
-            self.user_input_event.set()
-
     def get_user_input(self, timeout=None, clock=time.time):
         """Wait for and get user input."""
         was_set = self.user_input_event.wait(timeout=timeout)
