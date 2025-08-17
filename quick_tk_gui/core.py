@@ -10,8 +10,8 @@ class GUI:
     def __init__(
         self,
         name: str,
-        initial_layout: Callable,
-        app_logic: Callable,
+        run_app: Callable,
+        setup_ui: Callable | None = None,
         minsize: tuple[int, int] = (700, 400),
     ):
 
@@ -20,20 +20,32 @@ class GUI:
 
         # Create the default user input events and variables
         self.user_input_event = threading.Event()
+        self._clock: Callable = time.time
         self.current_input_container: tk.Widget | None = None
-        self.current_input_var: tk.Variable = tk.StringVar(value="")
+        self.current_input_value: tk.Variable = tk.StringVar(value="")
+        self.current_input_timestamp: tk.DoubleVar = tk.DoubleVar(value=0.0)
         self.current_input_widgets: set[tk.Widget] = set()
         self.current_input_keybindings: set[str] = set()
 
-        # Create the initial layout from the user function
-        initial_layout(self)
+        if setup_ui is not None:
+            # Create the initial layout from the user function
+            setup_ui(self)
 
-        # Run the app_logic user function in a background thread
-        threading.Thread(target=app_logic, args=(self,), daemon=True).start()
+        # Run the run_app user function in a background thread
+        threading.Thread(target=run_app, args=(self,), daemon=True).start()
 
         self.root.minsize(*minsize)
 
         self.root.mainloop()
+
+    def set_clock(self, clock: Callable):
+        """Set the clock function to use when getting times/timestamp."""
+        self._clock = clock
+
+    @property
+    def now(self):
+        """Get the current time from the GUI clock."""
+        return self._clock()
 
     @staticmethod
     def _tk_safe_deepcopy(obj):
@@ -103,14 +115,22 @@ class GUI:
             # TODO: not all widgets have states
             widget.config(state=state)  # type: ignore[attr-defined]
 
-    def get_user_input(self, timeout=None, clock=time.time):
+    def get_user_input(self, timeout=None):
         """Wait for and get user input."""
+        # Wait until the user input event, and timeout safely
         was_set = self.user_input_event.wait(timeout=timeout)
         if not was_set:
             return None, None
-        timestamp = clock()  # NOTE: tested <1ms after handle_input callback fires
-        value = self.current_input_var.get()
+
+        # Get the user input value and timestamp from the callback
+        value = self.current_input_value.get()
+        timestamp = self.current_input_timestamp.get()
+
+        # Clear the user input values for next time
+        self.current_input_value = tk.StringVar(value="")
+        self.current_input_timestamp.set(0.0)
         self.user_input_event.clear()
+
         return value, timestamp
 
     def clear_current_input_ui(self):
@@ -124,4 +144,5 @@ class GUI:
             self.current_input_widgets.clear()
         self.unbind_keys(self.current_input_keybindings)
         self.current_input_keybindings.clear()
-        self.current_input_var = tk.StringVar(value="")
+        self.current_input_value = tk.StringVar(value="")
+        self.current_input_timestamp.set(0.0)

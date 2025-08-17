@@ -42,12 +42,25 @@ The `presets` module contains some functions for adding elements to the user int
 
 To keep the GUI responsive, tkinter (and the `initial_layout` function) runs in the *main thread*, and the `app_logic` runs in a *background thread*. Edits to the GUI from the `app_logic` function/thread must be wrapped in the `gui.on_main_thread` function.
 
+## Customer Interfaces
+
+The `presets` module provides some simple user input UI elements, but ktinter can be used as normal to interact with the UI.
+
+To use the user input handling built into `quick_tk_gui`, a custom user input UI must set the following on creation:
+- `gui.current_input_container: tk.Widget`: the parent container frame to allow the input UI to be removed.
+- `gui.current_input_widgets: set[tk.Widget]`: the interactive elements of the input UI to allow them to be enabled and disabled.
+- `gui.current_input_keybindings: set[str]`: a list of keys bound to the `gui.root` (`tk.root`) to allow them to be unbound later.
+
+In the input event handler callback, the input value and timestamp of the input must be set:
+- `gui.current_input_value: tk.Variable`: the value of the user input
+- `gui.current_input_timestamp: float`: the time of the user input, most likely `= gui.now`.
+
 ## Timing
 
-The `clock` argument of `gui.get_user_input` can be used to get the response timestamp based on a particular clock. By default the timestamp is `time.time()`.
+User input events are timestamped. The `presets` module sets the response timestamp early in the event handler callback. The "gui clock" can be accessed with `gui.now`.
 
-For example, to use the [sounddevice Stream](https://python-sounddevice.readthedocs.io/en/0.3.15/api/streams.html#sounddevice.Stream) clock:
+By default, the "gui clock" uses `time.time()`, but this can be overwritten using `gui.set_clock()`. For example, to use the [sounddevice Stream](https://python-sounddevice.readthedocs.io/en/0.3.15/api/streams.html#sounddevice.Stream) clock:
 
 ```python
-value, timestamp = gui.get_user_input(clock=lambda: stream.time)
+gui.set_clock(clock=lambda: stream.time)
 ```

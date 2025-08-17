@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from quick_tk_gui import GUI, presets
 
 
-def initial_layout(gui):
+def setup_ui(gui):
     """Define the opening layout of the GUI.
 
     This function runs on the main thread and uses a mixture of presets and custom tkinter.
@@ -105,7 +105,7 @@ def show_data(data, participant_name):
     plt.show()
 
 
-def app_logic(gui):
+def run_app(gui):
     """Define the app logic.
 
     This function runs in a background thread and so any GUI updates must be passed to the main thread.
@@ -131,4 +131,4 @@ def app_logic(gui):
     gui.close()
 
 
-gui = GUI(name="Example GUI", initial_layout=initial_layout, app_logic=app_logic)
+gui = GUI(name="Example GUI", setup_ui=setup_ui, run_app=run_app)

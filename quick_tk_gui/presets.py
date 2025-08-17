@@ -3,7 +3,8 @@ import tkinter as tk
 """
 When adding an input UI region, the following GUI attributes must be set:
 - self.current_input_container: tk.Widget
-- self.current_input_var: tk.Variable
+- self.current_input_value: tk.Variable
+- self.current_input_timestamp: float (using gui.get_timestamp)
 - self.current_input_widgets: set[tk.Widget]
 - self.current_input_keybindings: set[str]
 """
@@ -68,10 +69,12 @@ def add_n_button_input(
 
     def handle_input(gui, button, value):
         """Fire the value associated with the button if it is enabled."""
+        timestamp = gui.now
         if str(button["state"]) == "normal":
-            gui.current_input_var.set(value)
-            gui.user_input_event.set()
             gui.set_enabled(gui.current_input_widgets, False)
+            gui.current_input_value.set(value)
+            gui.current_input_timestamp.set(timestamp)
+            gui.user_input_event.set()
 
     # Check all button values are the same type and set the input var to that type
     if not all(type(b["value"]) is type(buttons[0]["value"]) for b in buttons):
@@ -121,7 +124,7 @@ def add_n_button_input(
 
     # Set the GUI variables to keep track of the input
     gui.current_input_container = container
-    gui.current_input_var = input_var
+    gui.current_input_value = input_var
     gui.current_input_widgets = input_widgets
     gui.current_input_keybindings = input_keybindings
 
@@ -144,11 +147,13 @@ def add_text_input(
 
     def handle_input(gui, button, entry):
         """Fire the value in the entry box if the button and entry are enabled."""
+        timestamp = gui.now  # get timestamp as early as possible
         if str(button["state"]) == "normal" and str(entry["state"]) == "normal":
-            value = entry.get()
-            gui.current_input_var.set(value)
-            gui.user_input_event.set()
             gui.set_enabled(gui.current_input_widgets, False)
+            value = entry.get()
+            gui.current_input_value.set(value)
+            gui.current_input_timestamp.set(timestamp)
+            gui.user_input_event.set()
 
     input_var = _type_to_tk_var(str)
 
@@ -199,6 +204,6 @@ def add_text_input(
 
     # Set the GUI variables to keep track of the input
     gui.current_input_container = container
-    gui.current_input_var = input_var
+    gui.current_input_value = input_var
     gui.current_input_widgets = input_widgets
     gui.current_input_keybindings = input_keybindings
