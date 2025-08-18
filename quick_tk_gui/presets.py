@@ -18,9 +18,16 @@ def _create_centred_container(parent_frame):
     return inner_container
 
 
-def label(prompt: UserPrompt, label: str, font: tuple[str, int] = ("Arial", 14)):
+def label(
+    prompt: UserPrompt,
+    parent_frame: tk.Widget,
+    label: str,
+    font: tuple[str, int] = ("Arial", 14),
+):
 
-    centred_container = _create_centred_container(prompt.frame)
+    prompt.set_return_type(bool)  # Any because there is no response
+
+    centred_container = _create_centred_container(parent_frame)
 
     l = tk.Label(centred_container, text=label, font=font)
     l.pack(pady=(0, 0))

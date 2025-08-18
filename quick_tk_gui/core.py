@@ -83,7 +83,9 @@ class ThreadedGUI:
         """Get the current time from the GUI clock."""
         return self._clock()
 
-    def add_prompt(self, setup_func: Callable, parent_frame: tk.Widget, *args, **kwargs):
+    def add_prompt(
+        self, setup_func: Callable, parent_frame: tk.Widget, *args, **kwargs
+    ):
         """Add a prompt (`UserPrompt`), using a setup function, to the GUI."""
 
         def create_prompt():

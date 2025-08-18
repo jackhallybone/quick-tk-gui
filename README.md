@@ -88,7 +88,7 @@ def app_logic(gui):
     gui.run_on_ui_thread(lambda: gui.label.config(text="Updated text!"))
 
 
-gui = ThreadedGUI(name="Threading Example", build_ui=build_ui, app_logic=app_logic)
+ThreadedGUI(name="Threading Example", build_ui=build_ui, app_logic=app_logic)
 ```
 
 ### Prompt Example (preset and custom)
@@ -189,5 +189,5 @@ def app_logic(gui):
     prompt.destroy()
 
 
-gui = ThreadedGUI(name="Prompt Example", app_logic=app_logic)
+ThreadedGUI(name="Prompt Example", app_logic=app_logic)
 ```
