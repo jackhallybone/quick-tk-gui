@@ -1,3 +1,3 @@
-from .core import GUI
+from .core import ThreadedGUI
 
-__all__ = ["GUI"]
+__all__ = ["ThreadedGUI"]

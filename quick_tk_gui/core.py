@@ -5,47 +5,29 @@ import tkinter as tk
 from typing import Callable
 
 
-class GUI:
+class ThreadedGUI:
 
     def __init__(
         self,
         name: str,
-        run_app: Callable,
-        setup_ui: Callable | None = None,
-        minsize: tuple[int, int] = (700, 400),
+        app_logic: Callable,
+        build_ui: Callable | None = None,
+        min_size: tuple[int, int] = (700, 400),
     ):
 
         self.root = tk.Tk()
         self.root.title(name)
 
-        # Create the default user input events and variables
-        self.user_input_event = threading.Event()
         self._clock: Callable = time.time
-        self.current_input_container: tk.Widget | None = None
-        self.current_input_value: tk.Variable = tk.StringVar(value="")
-        self.current_input_timestamp: tk.DoubleVar = tk.DoubleVar(value=0.0)
-        self.current_input_widgets: set[tk.Widget] = set()
-        self.current_input_keybindings: set[str] = set()
 
-        if setup_ui is not None:
-            # Create the initial layout from the user function
-            setup_ui(self)
+        if build_ui:
+            build_ui(self)
 
-        # Run the run_app user function in a background thread
-        threading.Thread(target=run_app, args=(self,), daemon=True).start()
+        threading.Thread(target=app_logic, args=(self,), daemon=True).start()
 
-        self.root.minsize(*minsize)
+        self.root.minsize(*min_size)
 
         self.root.mainloop()
-
-    def set_clock(self, clock: Callable):
-        """Set the clock function to use when getting times/timestamp."""
-        self._clock = clock
-
-    @property
-    def now(self):
-        """Get the current time from the GUI clock."""
-        return self._clock()
 
     @staticmethod
     def _tk_safe_deepcopy(obj):
@@ -55,7 +37,7 @@ class GUI:
         except:
             return obj
 
-    def on_main_thread(self, func, *args, **kwargs):
+    def run_on_ui_thread(self, func, *args, **kwargs):
         """Synchronously run a function on the main (GUI) thread.
 
         - All arguments are deep-copied if possible for safety
@@ -90,59 +72,130 @@ class GUI:
 
     def close(self):
         """Close the GUI window."""
-        self.on_main_thread(self.root.destroy)
+        self.run_on_ui_thread(self.root.destroy)
 
-    def remove_widgets(self, widgets: list[tk.Widget] | set[tk.Widget]):
-        """Remove widgets from the GUI."""
-        for widget in widgets:
-            widget.destroy()
+    def set_clock(self, clock: Callable):
+        """Set the clock function to use when getting times/timestamp."""
+        self._clock = clock
 
-    def clear_frame(self, frame: tk.Widget):
-        """Clear a frame of its contents (remove child widgets from the GUI)."""
-        for child in frame.winfo_children():
-            child.destroy()
+    @property
+    def now(self):
+        """Get the current time from the GUI clock."""
+        return self._clock()
 
-    def unbind_keys(self, keys: list[str] | set[str]):
-        """Unbind keys from the root element."""
-        for key in keys:
-            self.root.unbind(key)
+    def add_prompt(self, setup_func: Callable, parent: tk.Widget, *args, **kwargs):
+        """Add a prompt (`UserPrompt`), using a setup function, to the GUI."""
+
+        def create_prompt():
+            prompt = UserPrompt(self, parent)
+            setup_func(prompt, *args, **kwargs)
+            return prompt
+
+        return self.run_on_ui_thread(create_prompt)
+
+
+class UserPrompt:
+
+    def __init__(self, gui: ThreadedGUI, parent: tk.Widget):
+        self.gui = gui
+        self.frame = parent
+        self.event = threading.Event()
+        # self.value = # must be set using self.set_return_type()
+        self.timestamp = tk.DoubleVar()
+        self.widgets = set()
+        self.keybindings = set()
 
     @staticmethod
-    def set_enabled(widgets: list[tk.Widget] | set[tk.Widget], enabled: bool):
-        """Set the state of one or more widgets to enabled/normal or disabled."""
-        state = "normal" if enabled else "disabled"
-        for widget in widgets:
-            # TODO: not all widgets have states
-            widget.config(state=state)  # type: ignore[attr-defined]
+    def _type_to_tk_var(py_type: type) -> tk.Variable:
+        """Return the tkinter variable matching the type of the argument."""
+        if py_type is bool:
+            return tk.BooleanVar()
+        if py_type is int:
+            return tk.IntVar()
+        if py_type is float:
+            return tk.DoubleVar()
+        if py_type is str:
+            return tk.StringVar()
+        raise ValueError(f"Unsupported value type: {py_type}")
 
-    def get_user_input(self, timeout=None):
-        """Wait for and get user input."""
-        # Wait until the user input event, and timeout safely
-        was_set = self.user_input_event.wait(timeout=timeout)
+    @staticmethod
+    def _clear_tk_var(var: tk.Variable):
+        """Reset a tkinter variable to it falsy value depending on type."""
+        if isinstance(var, tk.BooleanVar):
+            var.set(False)
+        elif isinstance(var, tk.IntVar):
+            var.set(0)
+        elif isinstance(var, tk.DoubleVar):
+            var.set(0.0)
+        elif isinstance(var, tk.StringVar):
+            var.set("")
+        else:
+            raise ValueError(f"Unsupported variable type: {var}")
+
+    def set_return_type(self, py_type: type):
+        """Set the return type, and value variable, of the prompt."""
+        self.value = self._type_to_tk_var(py_type)
+
+    def _set_enabled(self, enabled: bool):
+        """Set the state for all interactive widgets in the `self.widgets` set."""
+        state = "normal" if enabled else "disabled"
+        for widget in self.widgets:
+            try:
+                widget.config(state=state)
+            except tk.TclError:
+                pass
+
+    def enable(self):
+        """Enable the prompt."""
+        self.gui.run_on_ui_thread(self._set_enabled, True)
+
+    def disable(self):
+        """Disable the prompt."""
+        self.gui.run_on_ui_thread(self._set_enabled, False)
+
+    def submit(self, value):
+        """A callback to submit the response, where the type of `value` matches the prompt return type."""
+
+        def _submit():
+            self.timestamp.set(time.time())  # capture time as early as possible
+            if all(
+                [w["state"] == "normal" for w in self.widgets if "state" in w.keys()]
+            ):
+                self.value.set(value)
+                self.event.set()
+
+        self.gui.run_on_ui_thread(_submit)
+
+    def wait_for_response(self, timeout=None, disable=True):
+        """Wait (in the background/app thread) until the user responds to the prompt."""
+        was_set = self.event.wait(timeout=timeout)
         if not was_set:
             return None, None
+        if disable:
+            self.disable()
+        self.event.clear()  # reset
+        return self.value.get(), self.timestamp.get()
 
-        # Get the user input value and timestamp from the callback
-        value = self.current_input_value.get()
-        timestamp = self.current_input_timestamp.get()
+    def _reset(self):
+        """Set the response variables to falsy and clear the response event."""
+        self._clear_tk_var(self.value)
+        self._clear_tk_var(self.timestamp)
+        self.event.clear()
 
-        # Clear the user input values for next time
-        self.current_input_value = tk.StringVar(value="")
-        self.current_input_timestamp.set(0.0)
-        self.user_input_event.clear()
+    def reset(self):
+        """Reset the response variables and events."""
+        self.gui.run_on_ui_thread(self._reset)
 
-        return value, timestamp
+    def destroy(self):
+        """Destroy the prompt (remove and unbind it from the GUI)."""
 
-    def clear_current_input_ui(self):
-        """Clear the current user input based on the attributes set on creation.
+        def _destroy():
+            for child in self.frame.winfo_children():
+                child.destroy()
+            self.widgets.clear()
+            for key in self.keybindings:
+                self.gui.root.unbind(key)
+            self.keybindings.clear()
+            self._reset()
 
-        This is intended to cleanly remove them from the GUI and unbind root keybindings.
-        """
-        if self.current_input_container:
-            self.clear_frame(self.current_input_container)
-            self.current_input_container = None
-            self.current_input_widgets.clear()
-        self.unbind_keys(self.current_input_keybindings)
-        self.current_input_keybindings.clear()
-        self.current_input_value = tk.StringVar(value="")
-        self.current_input_timestamp.set(0.0)
+        self.gui.run_on_ui_thread(_destroy)
