@@ -23,8 +23,8 @@ def build_ui(gui):
 
     # Add a button array prompt to the GUI using the n_button preset UI
     gui.number_prompt = gui.add_prompt(
-        presets.n_button,
-        parent=gui.root,
+        setup_func=presets.n_button,
+        parent_frame=gui.root,
         label="Choose an option:",
         buttons=[
             {"label": "A", "value": "A", "keybindings": ["A", "a"]},
@@ -123,11 +123,12 @@ import tkinter as tk
 from quick_tk_gui import ThreadedGUI, UserPrompt, presets
 
 
-def preset_prompt(prompt: UserPrompt):
+def preset_prompt(prompt: UserPrompt, parent_frame: tk.Widget):
     """Create a 3 button input choice prompt using a preset."""
 
     presets.n_button(
         prompt,
+        parent=parent_frame,
         label="Select a number:",
         buttons=[
             {"label": "One", "value": 1, "keybindings": ["1"]},
@@ -137,21 +138,21 @@ def preset_prompt(prompt: UserPrompt):
     )
 
 
-def custom_prompt(prompt: UserPrompt):
+def custom_prompt(prompt: UserPrompt, parent_frame: tk.Widget):
     """Create a text input field prompt from scratch."""
 
     prompt.set_return_type(str)  # set the return type of the custom prompt
 
-    lbl = tk.Label(prompt.frame, text="Enter something:")
+    lbl = tk.Label(parent_frame, text="Enter something:")
     lbl.pack()
 
-    entry = tk.Entry(prompt.frame)
+    entry = tk.Entry(parent_frame)
     entry.pack()
 
     prompt.widgets.add(entry)  # track the interactive widgets in the custom prompt
 
     b = tk.Button(
-        prompt.frame, text="Submit", command=lambda: prompt.submit(entry.get())
+        parent_frame, text="Submit", command=lambda: prompt.submit(entry.get())
     )
     b.pack()
 
@@ -166,7 +167,7 @@ def app_logic(gui):
     """Run the app logic in a background thread to keep the UI responsive."""
 
     # Create a prompt using a preset and wait for user input
-    prompt = gui.add_prompt(setup_func=preset_prompt, parent=gui.root)
+    prompt = gui.add_prompt(setup_func=preset_prompt, parent_frame=gui.root)
     value, ts = prompt.wait_for_response()
     print(value, ts)
 
@@ -182,7 +183,7 @@ def app_logic(gui):
     time.sleep(2)
 
     # Create a new prompt, custom defined, wait for then input the destroy it
-    prompt = gui.add_prompt(setup_func=custom_prompt, parent=gui.root)
+    prompt = gui.add_prompt(setup_func=custom_prompt, parent_frame=gui.root)
     value, ts = prompt.wait_for_response()
     print(value, ts)
     prompt.destroy()

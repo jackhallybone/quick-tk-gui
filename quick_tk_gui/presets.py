@@ -4,11 +4,11 @@ from tkinter import filedialog
 from .core import UserPrompt
 
 
-def _create_centred_container(parent):
+def _create_centred_container(parent_frame):
     """Create wrapper frames inside a parent so the content is horizontally and vertically centred."""
 
     # Create an outer container that fills the parent frame
-    outer_container = tk.Frame(parent)
+    outer_container = tk.Frame(parent_frame)
     outer_container.pack(expand=True, fill="both")
 
     # Create an inner container that is in the center of the outer container
@@ -28,6 +28,7 @@ def label(prompt: UserPrompt, label: str, font: tuple[str, int] = ("Arial", 14))
 
 def n_button(
     prompt: UserPrompt,
+    parent_frame: tk.Widget,
     label: str,
     buttons: list[dict],
     label_font: tuple[str, int] = ("Arial", 14),
@@ -45,7 +46,7 @@ def n_button(
     # Set the return type based on the button values
     prompt.set_return_type(type(buttons[0]["value"]))
 
-    centred_container = _create_centred_container(prompt.frame)
+    centred_container = _create_centred_container(parent_frame)
 
     if label:
         l = tk.Label(centred_container, text=label, font=label_font)
@@ -86,6 +87,7 @@ def n_button(
 
 def text_entry(
     prompt: UserPrompt,
+    parent_frame: tk.Widget,
     label: str,
     prefill: str = "",
     button: dict = {"label": "Submit", "keybindings": ["Return"]},
@@ -100,7 +102,7 @@ def text_entry(
 
     prompt.set_return_type(str)
 
-    centred_container = _create_centred_container(prompt.frame)
+    centred_container = _create_centred_container(parent_frame)
 
     if label:
         l = tk.Label(centred_container, text=label, font=label_font)
@@ -144,6 +146,7 @@ def text_entry(
 
 def dropdown(
     prompt: UserPrompt,
+    parent_frame: tk.Widget,
     label: str,
     options: list,
     button: dict = {"label": "Submit", "keybindings": ["Return"]},
@@ -157,7 +160,7 @@ def dropdown(
 
     prompt.set_return_type(str)
 
-    centred_container = _create_centred_container(prompt.frame)
+    centred_container = _create_centred_container(parent_frame)
 
     if label:
         l = tk.Label(centred_container, text=label, font=label_font)
@@ -211,6 +214,7 @@ def dropdown(
 
 def file_choice(
     prompt: UserPrompt,
+    parent_frame: tk.Widget,
     label: str,
     button: dict = {"label": "Select File", "keybindings": ["Return"]},
     label_font: tuple[str, int] = ("Arial", 14),
@@ -223,7 +227,7 @@ def file_choice(
 
     prompt.set_return_type(str)
 
-    centred_container = _create_centred_container(prompt.frame)
+    centred_container = _create_centred_container(parent_frame)
 
     if label:
         l = tk.Label(centred_container, text=label, font=label_font)
