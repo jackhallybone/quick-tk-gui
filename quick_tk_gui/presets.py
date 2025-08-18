@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import filedialog
 
 from .core import UserPrompt
 
@@ -15,6 +16,14 @@ def _create_centred_container(parent):
     inner_container.place(relx=0.5, rely=0.5, anchor="center")
 
     return inner_container
+
+
+def label(prompt: UserPrompt, label: str, font: tuple[str, int] = ("Arial", 14)):
+
+    centred_container = _create_centred_container(prompt.frame)
+
+    l = tk.Label(centred_container, text=label, font=font)
+    l.pack(pady=(0, 0))
 
 
 def n_button(
@@ -73,3 +82,181 @@ def n_button(
         # Keep track of interactive widgets and keybindings
         prompt.widgets.add(btn)
         prompt.keybindings.update(keys)
+
+
+def text_entry(
+    prompt: UserPrompt,
+    label: str,
+    prefill: str = "",
+    button: dict = {"label": "Submit", "keybindings": ["Return"]},
+    label_font: tuple[str, int] = ("Arial", 14),
+    entry_font: tuple[str, int] = ("Arial", 10),
+    button_font: tuple[str, int] = ("Arial", 12),
+    vertical_spacing: int = 10,
+    entry_width: int = 30,
+    button_width: int = 10,
+    button_height: int = 2,
+):
+
+    prompt.set_return_type(str)
+
+    centred_container = _create_centred_container(prompt.frame)
+
+    if label:
+        l = tk.Label(centred_container, text=label, font=label_font)
+        l.pack(pady=(0, vertical_spacing))
+
+    # Add a text entry field
+    entry = tk.Entry(centred_container, width=entry_width, font=entry_font)
+    entry.insert(tk.END, prefill)
+    entry.pack(pady=(0, vertical_spacing))
+
+    # Set focus to the Entry widget
+    entry.focus_set()
+
+    # Add and bind button
+    btn = tk.Button(
+        centred_container,
+        text=button["label"],
+        command=lambda: prompt.submit(entry.get()),
+        width=button_width,
+        height=button_height,
+        font=button_font,
+        bg="lightgrey",
+        fg="black",
+        activebackground="lightgrey",
+        activeforeground="black",
+    )
+    btn.pack()
+
+    # Bind keypress events
+    keys = set()
+    for key in button.get("keybindings", []):
+        key_name = f"<KeyPress-{key}>"
+        prompt.gui.root.bind(key_name, lambda _: prompt.submit(entry.get()))
+        keys.add(key_name)
+
+    # Keep track of interactive widgets and keybindings
+    prompt.widgets.add(entry)
+    prompt.widgets.add(btn)
+    prompt.keybindings.update(keys)
+
+
+def dropdown(
+    prompt: UserPrompt,
+    label: str,
+    options: list,
+    button: dict = {"label": "Submit", "keybindings": ["Return"]},
+    label_font: tuple[str, int] = ("Arial", 14),
+    options_font: tuple[str, int] = ("Arial", 10),
+    button_font: tuple[str, int] = ("Arial", 12),
+    vertical_spacing: int = 10,
+    button_width: int = 10,
+    button_height: int = 2,
+):
+
+    prompt.set_return_type(str)
+
+    centred_container = _create_centred_container(prompt.frame)
+
+    if label:
+        l = tk.Label(centred_container, text=label, font=label_font)
+        l.pack(pady=(0, vertical_spacing))
+
+    prompt.value.set(options[0])
+
+    # The choice is handled by a stringvar
+    choice = tk.StringVar(value=options[0])
+
+    # Create and style the dropdown
+    dropdown = tk.OptionMenu(
+        centred_container,
+        choice,
+        *options,
+    )
+    dropdown.config(font=options_font, width=20, anchor="w")
+    dropdown["menu"].config(font=options_font)
+    dropdown.pack(pady=(0, vertical_spacing))
+
+    # Set focus to the Dropdown widget
+    dropdown.focus_set()
+
+    # Add and bind button
+    btn = tk.Button(
+        centred_container,
+        text=button["label"],
+        command=lambda: prompt.submit(choice.get()),
+        width=button_width,
+        height=button_height,
+        font=button_font,
+        bg="lightgrey",
+        fg="black",
+        activebackground="lightgrey",
+        activeforeground="black",
+    )
+    btn.pack()
+
+    # Bind keypress events
+    keys = set()
+    for key in button.get("keybindings", []):
+        key_name = f"<KeyPress-{key}>"
+        prompt.gui.root.bind(key_name, lambda _: prompt.submit(choice.get()))
+        keys.add(key_name)
+
+    # Keep track of interactive widgets and keybindings
+    prompt.widgets.add(dropdown)
+    prompt.widgets.add(btn)
+    prompt.keybindings.update(keys)
+
+
+def file_choice(
+    prompt: UserPrompt,
+    label: str,
+    button: dict = {"label": "Select File", "keybindings": ["Return"]},
+    label_font: tuple[str, int] = ("Arial", 14),
+    button_font: tuple[str, int] = ("Arial", 12),
+    vertical_spacing: int = 10,
+    button_width: int = 10,
+    button_height: int = 2,
+    filetypes: list[tuple[str, str]] = [("All Files", "*.*")],
+):
+
+    prompt.set_return_type(str)
+
+    centred_container = _create_centred_container(prompt.frame)
+
+    if label:
+        l = tk.Label(centred_container, text=label, font=label_font)
+        l.pack(pady=(0, vertical_spacing))
+
+    # Function to open file dialog
+    def choose_file():
+        filename = filedialog.askopenfilename(filetypes=filetypes)
+        if filename:
+            prompt.submit(filename)
+
+    # Button to open the file dialog
+    btn = tk.Button(
+        centred_container,
+        text=button["label"],
+        command=choose_file,
+        width=button_width,
+        height=button_height,
+        font=button_font,
+        bg="lightgrey",
+        fg="black",
+        activebackground="lightgrey",
+        activeforeground="black",
+    )
+    btn.pack(pady=(0, vertical_spacing))
+
+    # Optional: bind keys
+    keys = set()
+    for key in button.get("keybindings", []):
+        key_name = f"<KeyPress-{key}>"
+        prompt.gui.root.bind(key_name, lambda _: choose_file())
+        keys.add(key_name)
+
+    # Keep track of interactive widgets and keybindings
+    prompt.widgets.add(btn)
+    prompt.keybindings.update(keys)
