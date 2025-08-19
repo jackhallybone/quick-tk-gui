@@ -92,7 +92,9 @@ class ThreadedGUI:
             prompt = UserPrompt(self, parent_frame)
             setup_func(prompt, parent_frame, *args, **kwargs)
             self.root.update_idletasks()
-            prompt.presentation_time = self.now # take timestamp as early after draw as possible
+            prompt.presentation_time = (
+                self.now
+            )  # take timestamp as early after draw as possible
             return prompt
 
         return self.run_on_ui_thread(create_prompt)
@@ -109,6 +111,13 @@ class UserPrompt:
         self.widgets = set()
         self.keybindings = set()
         self.presentation_time = None
+        self._destroyed = False
+
+    def _check_destroyed(self):
+        if self._destroyed:
+            raise RuntimeError(
+                "This prompt has been destroyed and can no longer be used."
+            )
 
     @staticmethod
     def _type_to_tk_var(py_type: type) -> tk.Variable:
@@ -139,6 +148,7 @@ class UserPrompt:
 
     def set_return_type(self, py_type: type):
         """Set the return type, and value variable, of the prompt."""
+        self._check_destroyed()
         self.value = self._type_to_tk_var(py_type)
 
     def _set_enabled(self, enabled: bool):
@@ -152,27 +162,33 @@ class UserPrompt:
 
     def enable(self):
         """Enable the prompt."""
+        self._check_destroyed()
         self.gui.run_on_ui_thread(self._set_enabled, True)
 
     def disable(self):
         """Disable the prompt."""
+        self._check_destroyed()
         self.gui.run_on_ui_thread(self._set_enabled, False)
 
     def submit(self, value):
         """A callback to submit the response, where the type of `value` matches the prompt return type."""
 
         def _submit():
-            self.timestamp.set(self.gui.now)  # take timestamp as close to callback fire as possible
+            self.timestamp.set(
+                self.gui.now
+            )  # take timestamp as close to callback fire as possible
             if all(
                 [w["state"] == "normal" for w in self.widgets if "state" in w.keys()]
             ):
                 self.value.set(value)
                 self.event.set()
 
+        self._check_destroyed()
         self.gui.run_on_ui_thread(_submit)
 
     def wait_for_response(self, timeout=None, disable=True):
         """Wait (in the background/app thread) until the user responds to the prompt."""
+        self._check_destroyed()
         was_set = self.event.wait(timeout=timeout)
         if not was_set:
             return None, None
@@ -189,6 +205,7 @@ class UserPrompt:
 
     def reset(self):
         """Reset the response variables and events."""
+        self._check_destroyed()
         self.gui.run_on_ui_thread(self._reset)
 
     def destroy(self):
@@ -202,5 +219,6 @@ class UserPrompt:
                 self.gui.root.unbind(key)
             self.keybindings.clear()
             self._reset()
+            self._destroyed = True
 
         self.gui.run_on_ui_thread(_destroy)
