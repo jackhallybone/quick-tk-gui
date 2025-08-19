@@ -91,6 +91,8 @@ class ThreadedGUI:
         def create_prompt():
             prompt = UserPrompt(self, parent_frame)
             setup_func(prompt, parent_frame, *args, **kwargs)
+            self.root.update_idletasks()
+            prompt.presentation_time = self.now # take timestamp as early after draw as possible
             return prompt
 
         return self.run_on_ui_thread(create_prompt)
@@ -106,6 +108,7 @@ class UserPrompt:
         self.timestamp = tk.DoubleVar()
         self.widgets = set()
         self.keybindings = set()
+        self.presentation_time = None
 
     @staticmethod
     def _type_to_tk_var(py_type: type) -> tk.Variable:
@@ -159,7 +162,7 @@ class UserPrompt:
         """A callback to submit the response, where the type of `value` matches the prompt return type."""
 
         def _submit():
-            self.timestamp.set(time.time())  # capture time as early as possible
+            self.timestamp.set(self.gui.now)  # take timestamp as close to callback fire as possible
             if all(
                 [w["state"] == "normal" for w in self.widgets if "state" in w.keys()]
             ):

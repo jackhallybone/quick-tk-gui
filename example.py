@@ -9,6 +9,8 @@ from quick_tk_gui import ThreadedGUI, presets
 def build_ui(gui):
     """Create an initial UI layout (this runs on the main thread during init)."""
 
+    gui.set_clock(time.perf_counter)
+
     # Header frame
     header = tk.Frame(gui.root, height=50)
     header.pack(side="top", fill="x")
@@ -105,9 +107,8 @@ def present_trial(gui):
     )
 
     # Wait for and capture the user response
-    start_time = time.time()
     value, timestamp = prompt.wait_for_response()
-    response_time = timestamp - start_time
+    response_time = timestamp - prompt.presentation_time
     print(f"User input: '{value}' at {timestamp} in {response_time}")
 
     # Remove the trial response user input
