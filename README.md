@@ -22,7 +22,7 @@ def build_ui(gui):
     """Create an initial UI layout (this runs on the main thread during init)."""
 
     # Add a button array prompt to the GUI using the n_button preset UI
-    gui.number_prompt = gui.add_prompt(
+    gui.prompt = gui.add_prompt(
         setup_func=presets.n_button,
         parent_frame=gui.root,
         label="Choose an option:",
@@ -37,7 +37,7 @@ def app_logic(gui):
     """Run the app logic in a background thread to keep the UI responsive."""
 
     # Get user input from the buttons
-    value, timestamp = gui.number_prompt.wait_for_response()
+    value, timestamp = gui.prompt.wait_for_response()
     print(f"User input: '{value}' at {timestamp}")
 
     # Automatically close the GUI window
@@ -48,6 +48,12 @@ ThreadedGUI(name="Example GUI", build_ui=build_ui, app_logic=app_logic)
 ```
 
 ## Timing
+
+Many factors impact the timing of visual updates and user input capture.
+
+When a prompt is added, a timestamp is taken as close to the visual render as possible and saved to the `presentation_timestamp` attribute. Similarly, the `wait_for_response()` method returns a timestamp taken as close to the user input as possible.
+
+### Clock
 
 The timestamp of the user response returned by `prompt.wait_for_response()` is taken from the `gui` clock. By default this uses `time.time()` and can be accessed with `gui.now`.
 
@@ -93,7 +99,7 @@ ThreadedGUI(name="Threading Example", build_ui=build_ui, app_logic=app_logic)
 
 ### Prompt Example (preset and custom)
 
-Optionally, the `ThreadedGUI` class can create a "prompt" which handles basic user interactivity (it creates a `UserPromp` instance in the background). The `presets` module provides some basic UIs, or these can be defined by the user and attached to the "prompts" mechanism.
+Optionally, the `ThreadedGUI` class can create a "prompt" which handles basic user interactivity (it creates a `_Prompt` instance in the background). The `presets` module provides some basic UIs, or these can be defined by the user and attached to the "prompts" mechanism.
 
 #### Interactivity
 
@@ -106,7 +112,7 @@ The interactivity methods of a `prompt` instance are internally wrapped in the `
 #### Creating custom prompts
 
 When creating a custom prompt the setup function must:
-- Accept an instance of `UserPrompt` as an argument
+- Accept an instance of `_Prompt` as an argument
 - Set the return type of the prompt using `prompt.set_return_type()`
 - Add all interactive widgets to the `prompt.widgets` set so the prompt can be enabled and disabled
 - Add all `gui.root` keybindings to the `prompt.keybindings` set so they can be unbound later
@@ -120,15 +126,15 @@ The following example uses both a preset and a custom prompt.
 import time
 import tkinter as tk
 
-from quick_tk_gui import ThreadedGUI, UserPrompt, presets
+from quick_tk_gui import ThreadedGUI, presets
 
 
-def preset_prompt(prompt: UserPrompt, parent_frame: tk.Widget):
+def preset_prompt(prompt, parent_frame: tk.Widget):
     """Create a 3 button input choice prompt using a preset."""
 
     presets.n_button(
         prompt,
-        parent=parent_frame,
+        parent_frame=parent_frame,
         label="Select a number:",
         buttons=[
             {"label": "One", "value": 1, "keybindings": ["1"]},
@@ -138,7 +144,7 @@ def preset_prompt(prompt: UserPrompt, parent_frame: tk.Widget):
     )
 
 
-def custom_prompt(prompt: UserPrompt, parent_frame: tk.Widget):
+def custom_prompt(prompt, parent_frame: tk.Widget):
     """Create a text input field prompt from scratch."""
 
     prompt.set_return_type(str)  # set the return type of the custom prompt
@@ -167,26 +173,26 @@ def app_logic(gui):
     """Run the app logic in a background thread to keep the UI responsive."""
 
     # Create a prompt using a preset and wait for user input
-    prompt = gui.add_prompt(setup_func=preset_prompt, parent_frame=gui.root)
-    value, ts = prompt.wait_for_response()
-    print(value, ts)
+    my_preset_prompt = gui.add_prompt(setup_func=preset_prompt, parent_frame=gui.root)
+    value, ts = my_preset_prompt.wait_for_response()
+    print("original preset prompt:", value, ts)
 
     time.sleep(2)
 
     # Clear the existing prompt and use it again, then destroy (remove) it
-    prompt.reset()
-    prompt.enable()
-    value, ts = prompt.wait_for_response()
-    print(value, ts)
-    prompt.destroy()
+    my_preset_prompt.reset()
+    my_preset_prompt.enable()
+    value, ts = my_preset_prompt.wait_for_response()
+    print("reset preset prompt:", value, ts)
+    gui.remove_prompt(my_preset_prompt)
 
     time.sleep(2)
 
     # Create a new prompt, custom defined, wait for then input the destroy it
-    prompt = gui.add_prompt(setup_func=custom_prompt, parent_frame=gui.root)
-    value, ts = prompt.wait_for_response()
-    print(value, ts)
-    prompt.destroy()
+    my_custom_prompt = gui.add_prompt(setup_func=custom_prompt, parent_frame=gui.root)
+    value, ts = my_custom_prompt.wait_for_response()
+    print("original custom prompt:", value, ts)
+    gui.remove_prompt(my_custom_prompt)
 
 
 ThreadedGUI(name="Prompt Example", app_logic=app_logic)

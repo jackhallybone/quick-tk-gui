@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 
-from .core import UserPrompt
+from .core import _Prompt
 
 
 def _create_centred_container(parent_frame):
@@ -19,7 +19,7 @@ def _create_centred_container(parent_frame):
 
 
 def label(
-    prompt: UserPrompt,
+    prompt: _Prompt,
     parent_frame: tk.Widget,
     label: str,
     font: tuple[str, int] = ("Arial", 14),
@@ -34,7 +34,7 @@ def label(
 
 
 def n_button(
-    prompt: UserPrompt,
+    prompt: _Prompt,
     parent_frame: tk.Widget,
     label: str,
     buttons: list[dict],
@@ -93,7 +93,7 @@ def n_button(
 
 
 def text_entry(
-    prompt: UserPrompt,
+    prompt: _Prompt,
     parent_frame: tk.Widget,
     label: str,
     prefill: str = "",
@@ -152,7 +152,7 @@ def text_entry(
 
 
 def dropdown(
-    prompt: UserPrompt,
+    prompt: _Prompt,
     parent_frame: tk.Widget,
     label: str,
     options: list,
@@ -220,7 +220,7 @@ def dropdown(
 
 
 def file_choice(
-    prompt: UserPrompt,
+    prompt: _Prompt,
     parent_frame: tk.Widget,
     label: str,
     button: dict = {"label": "Select File", "keybindings": ["Return"]},

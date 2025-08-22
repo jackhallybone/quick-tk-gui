@@ -39,7 +39,7 @@ def app_logic(gui):
 
     time.sleep(2)
 
-    gui.loading_prompt.destroy()
+    gui.remove_prompt(gui.loading_prompt)
 
     # Get the participant ID
     prompt = gui.add_prompt(
@@ -48,7 +48,7 @@ def app_logic(gui):
         label="Participant ID:",
     )
     participant_id, _ = prompt.wait_for_response()
-    prompt.destroy()
+    gui.remove_prompt(prompt)
 
     # Get the number of trials to complete
     prompt = gui.add_prompt(
@@ -64,7 +64,7 @@ def app_logic(gui):
         ],
     )
     num_trials, _ = prompt.wait_for_response()
-    prompt.destroy()
+    gui.remove_prompt(prompt)
 
     # Present each trial and capture the response
     response_times = []
@@ -99,7 +99,7 @@ def present_trial(gui):
         setup_func=presets.label, parent_frame=gui.content_frame, label="x"
     )
     time.sleep(2)
-    prompt.destroy()
+    gui.remove_prompt(prompt)
 
     # Add the user input for the trial response
     prompt = gui.add_prompt(
@@ -108,11 +108,11 @@ def present_trial(gui):
 
     # Wait for and capture the user response
     value, timestamp = prompt.wait_for_response()
-    response_time = timestamp - prompt.presentation_time
+    response_time = timestamp - prompt.presentation_timestamp
     print(f"User input: '{value}' at {timestamp} in {response_time}")
 
     # Remove the trial response user input
-    prompt.destroy()
+    gui.remove_prompt(prompt)
 
     return response_time
 

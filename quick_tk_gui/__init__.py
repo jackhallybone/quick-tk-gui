@@ -1,3 +1,3 @@
-from .core import ThreadedGUI, UserPrompt
+from .core import ThreadedGUI
 
-__all__ = ["ThreadedGUI", "UserPrompt"]
+__all__ = ["ThreadedGUI"]
