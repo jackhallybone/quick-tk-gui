@@ -44,7 +44,7 @@ class ThreadedGUI:
             return obj
 
     def run_on_ui_thread(self, func: Callable, *args, **kwargs) -> Any:
-        """Synchronously run (ie, blocking) a function on the main (ktinter) thread."""
+        """Run a function on the main (UI) thread, wait until it completes and return its returns."""
 
         # Already in the GUI thread, so just call
         if threading.current_thread() is threading.main_thread():
@@ -66,7 +66,12 @@ class ThreadedGUI:
                 done.set()
 
         self.root.after(0, wrapper)
-        done.wait()
+
+        wait_timeout = 10
+        if not done.wait(timeout=wait_timeout):  # avoid deadlock
+            raise RuntimeError(
+                f"Scheduled function did not run within {wait_timeout}s."
+            )
 
         if "error" in result:
             raise result["error"]
@@ -99,9 +104,9 @@ class ThreadedGUI:
             prompt = _Prompt(self, parent_frame)
             setup_func(prompt, parent_frame, *args, **kwargs)
             self.root.update_idletasks()
-            prompt.presentation_timestamp = (
+            prompt._presentation_timestamp = (
                 self.now
-            )  # take timestamp as early after draw as possible
+            )  # take timestamp as early after the actual draw as possible
             with self._lock:
                 self._prompts.add(prompt)
             return prompt
@@ -132,21 +137,25 @@ class _Prompt:
 
     def __init__(self, gui: ThreadedGUI, parent_frame: tk.Widget):
         """Initialise a _Prompt object, which begins "empty" and is populated by an external setup function."""
-        self.gui = gui
-        self.frame = parent_frame
-        self.event = threading.Event()
-        # self.value: tk.Variable = # must be set using self.set_return_type()
-        self.timestamp = tk.DoubleVar()
-        self.widgets: set[tk.Widget] = set()
-        self.keybindings: set[str] = set()
-        self.presentation_timestamp: float | None = None
+        self._gui = gui
+        self._parent_frame = parent_frame
+        self._event = threading.Event()
+        # self._value: tk.Variable = # must be set using self.set_return_type()
+        self._timestamp = tk.DoubleVar()
+        self._widgets: set[tk.Widget] = set()
+        self._keybindings: set[str] = set()
+        self._presentation_timestamp: float | None = None
 
     def _must_exist_in_ui(self):
         """Raise an error if the prompt has been destroyed."""
-        if self not in self.gui:
+        if self not in self._gui:
             raise RuntimeError(
                 "This prompt has been destroyed and can no longer be used."
             )
+
+    @property
+    def presentation_timestamp(self):
+        return self._presentation_timestamp
 
     @staticmethod
     def _type_to_tk_var(py_type: type) -> tk.Variable:
@@ -177,12 +186,22 @@ class _Prompt:
 
     def set_return_type(self, py_type: type):
         """Set the return type, and value variable, of the prompt."""
-        self.value = self._type_to_tk_var(py_type)
+        self._value = self._type_to_tk_var(py_type)
+
+    def track_interactive_widget(self, widget):
+        self._widgets.add(widget)
+
+    def track_root_keybinding(self, key):
+        self._keybindings.add(key)
+
+    @property
+    def root(self):
+        return self._gui.root
 
     def _set_enabled(self, enabled: bool):
-        """Set the state for all interactive widgets in the `self.widgets` set."""
+        """Set the state for all interactive widgets in the `self._widgets` set."""
         state = "normal" if enabled else "disabled"
-        for widget in self.widgets:
+        for widget in self._widgets:
             try:
                 widget.config(state=state)
             except tk.TclError:
@@ -191,65 +210,68 @@ class _Prompt:
     def enable(self):
         """Enable the interactive widgets in the prompt."""
         self._must_exist_in_ui()
-        self.gui.run_on_ui_thread(self._set_enabled, True)
+        self._gui.run_on_ui_thread(self._set_enabled, True)
 
     def disable(self):
         """Disable the interactive widgets in the prompt."""
         self._must_exist_in_ui()
-        self.gui.run_on_ui_thread(self._set_enabled, False)
+        self._gui.run_on_ui_thread(self._set_enabled, False)
 
     def submit(self, value: Any):
         """UI callback to submit the response where the type of `value` matching the prompt return type."""
 
         def _submit():
             """If the prompt is active (widgets enabled), on submit, set the return values."""
-            self.timestamp.set(
-                self.gui.now
+            self._timestamp.set(
+                self._gui.now
             )  # take timestamp as close to callback fire as possible
             if all(
-                [w["state"] == "normal" for w in self.widgets if "state" in w.keys()]
+                [w["state"] == "normal" for w in self._widgets if "state" in w.keys()]
             ):
-                self.value.set(value)
-                self.event.set()
+                self._value.set(value)
+                self._event.set()
 
         self._must_exist_in_ui()
-        self.gui.run_on_ui_thread(_submit)
+        self._gui.run_on_ui_thread(_submit)
 
     def wait_for_response(
         self, timeout=None, disable=True
     ) -> tuple[Any, float] | tuple[None, None]:
         """Wait (blocking the calling thread) until the user responds to the UI prompt."""
         self._must_exist_in_ui()
-        was_set = self.event.wait(timeout=timeout)
+        was_set = self._event.wait(timeout=timeout)
         if not was_set:
             return None, None
         if disable:
             self.disable()
-        self.event.clear()  # reset
-        return self.value.get(), self.timestamp.get()
+        value, timestamp = self._gui.run_on_ui_thread(
+            lambda: (self._value.get(), self._timestamp.get())
+        )
+        self._event.clear()  # reset
+        return value, timestamp
 
     def reset(self):
         """Reset the response variables and user input events."""
 
         def _reset():
             """Set the response variables to falsy and clear the response event."""
-            self._clear_tk_var(self.value)
-            self._clear_tk_var(self.timestamp)
-            self.event.clear()
+            self._clear_tk_var(self._value)
+            self._clear_tk_var(self._timestamp)
+            self._event.clear()
 
         self._must_exist_in_ui()
-        self.gui.run_on_ui_thread(_reset)
+        self._gui.run_on_ui_thread(_reset)
 
     def _destroy(self):
         """Destroy the prompt (remove and unbind it from the UI)."""
 
         def _do_destroy():
-            for child in self.frame.winfo_children():
+            for child in self._parent_frame.winfo_children():
                 child.destroy()
-            self.widgets.clear()
-            for key in self.keybindings:
-                self.gui.root.unbind(key)
-            self.keybindings.clear()
+            self._widgets.clear()
+            for key in self._keybindings:
+                self._gui.root.unbind(key)
+            self._keybindings.clear()
             self.reset()
 
-        self.gui.run_on_ui_thread(_do_destroy)
+        self._gui.run_on_ui_thread(_do_destroy)

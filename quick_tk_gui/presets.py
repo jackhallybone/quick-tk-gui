@@ -80,16 +80,13 @@ def n_button(
         )
         btn.pack(side="left", padx=horizontal_spacing)
 
+        prompt.track_interactive_widget(btn)  # track all interactive widgets
+
         # Bind keypress events
-        keys = set()
         for key in b.get("keybindings", []):
             key_name = f"<KeyPress-{key}>"
-            prompt.gui.root.bind(key_name, lambda _, v=value: prompt.submit(v))
-            keys.add(key_name)
-
-        # Keep track of interactive widgets and keybindings
-        prompt.widgets.add(btn)
-        prompt.keybindings.update(keys)
+            prompt.root.bind(key_name, lambda _, v=value: prompt.submit(v))
+            prompt.track_root_keybinding(key_name)  # track all keybindings to root
 
 
 def text_entry(
@@ -120,6 +117,8 @@ def text_entry(
     entry.insert(tk.END, prefill)
     entry.pack(pady=(0, vertical_spacing))
 
+    prompt.track_interactive_widget(entry)  # track all interactive widgets
+
     # Set focus to the Entry widget
     entry.focus_set()
 
@@ -138,17 +137,13 @@ def text_entry(
     )
     btn.pack()
 
+    prompt.track_interactive_widget(btn)  # track all interactive widgets
+
     # Bind keypress events
-    keys = set()
     for key in button.get("keybindings", []):
         key_name = f"<KeyPress-{key}>"
-        prompt.gui.root.bind(key_name, lambda _: prompt.submit(entry.get()))
-        keys.add(key_name)
-
-    # Keep track of interactive widgets and keybindings
-    prompt.widgets.add(entry)
-    prompt.widgets.add(btn)
-    prompt.keybindings.update(keys)
+        prompt.root.bind(key_name, lambda _: prompt.submit(entry.get()))
+        prompt.track_root_keybinding(key_name)  # track all keybindings to root
 
 
 def dropdown(
@@ -173,8 +168,6 @@ def dropdown(
         l = tk.Label(centred_container, text=label, font=label_font)
         l.pack(pady=(0, vertical_spacing))
 
-    prompt.value.set(options[0])
-
     # The choice is handled by a stringvar
     choice = tk.StringVar(value=options[0])
 
@@ -187,6 +180,8 @@ def dropdown(
     dropdown.config(font=options_font, width=20, anchor="w")
     dropdown["menu"].config(font=options_font)
     dropdown.pack(pady=(0, vertical_spacing))
+
+    prompt.track_interactive_widget(dropdown)  # track all interactive widgets
 
     # Set focus to the Dropdown widget
     dropdown.focus_set()
@@ -206,20 +201,16 @@ def dropdown(
     )
     btn.pack()
 
+    prompt.track_interactive_widget(btn)  # track all interactive widgets
+
     # Bind keypress events
-    keys = set()
     for key in button.get("keybindings", []):
         key_name = f"<KeyPress-{key}>"
-        prompt.gui.root.bind(key_name, lambda _: prompt.submit(choice.get()))
-        keys.add(key_name)
-
-    # Keep track of interactive widgets and keybindings
-    prompt.widgets.add(dropdown)
-    prompt.widgets.add(btn)
-    prompt.keybindings.update(keys)
+        prompt.root.bind(key_name, lambda _: prompt.submit(choice.get()))
+        prompt.track_root_keybinding(key_name)  # track all keybindings to root
 
 
-def file_choice(
+def file_select(
     prompt: _Prompt,
     parent_frame: tk.Widget,
     label: str,
@@ -261,13 +252,10 @@ def file_choice(
     )
     btn.pack(pady=(0, vertical_spacing))
 
+    prompt.track_interactive_widget(btn)  # track all interactive widgets
+
     # Optional: bind keys
-    keys = set()
     for key in button.get("keybindings", []):
         key_name = f"<KeyPress-{key}>"
-        prompt.gui.root.bind(key_name, lambda _: choose_file())
-        keys.add(key_name)
-
-    # Keep track of interactive widgets and keybindings
-    prompt.widgets.add(btn)
-    prompt.keybindings.update(keys)
+        prompt.root.bind(key_name, lambda _: choose_file())
+        prompt.track_root_keybinding(key_name)  # track all keybindings to root
