@@ -17,7 +17,7 @@ The following snippet shows how a `ThreadedGUI` UI can be used to create a respo
 ```python
 import tkinter as tk
 
-from quick_tk_gui import ThreadedGUI, presets
+import quick_tk_gui as qtkgui
 
 
 def build_ui(gui):
@@ -33,7 +33,7 @@ def build_ui(gui):
 
     # Add a button array prompt to the GUI using the n_button preset UI
     gui.prompt = gui.add_prompt(
-        setup_func=presets.n_button,
+        setup_func=qtkgui.presets.n_button,
         parent_frame=gui.prompt_frame,
         label="Choose an option:",
         buttons=[
@@ -59,7 +59,7 @@ def app_logic(gui):
     )
 
 
-ThreadedGUI(name="Example GUI", build_ui=build_ui, app_logic=app_logic)
+qtkgui.ThreadedGUI(name="Example GUI", build_ui=build_ui, app_logic=app_logic)
 ```
 
 ## Timing
@@ -70,9 +70,11 @@ If using the "prompt mechanism", a timestamp is taken as close to the visual ren
 
 ### Clock
 
-Timestamps are taken from the `ThreadedGUI` clock, which uses `time.time()` by default. The `now` property returns the current time.
+Timestamps are taken from the `ThreadedGUI` clock. The `now` property returns the current time.
 
-The `set_clock()` method can be used to change the clock function. For example, to use the [sounddevice Stream time](https://python-sounddevice.readthedocs.io/en/0.3.15/api/streams.html#sounddevice.Stream.time) as the clock:
+By default, the clock function uses `time.time()`, but this can be changed using `set_clock()`. For example, this is necessary when comparing UI timestamps to events from other sources such as a [sounddevice](https://github.com/spatialaudio/python-sounddevice/) or [DipStream](https://github.com/jackhallybone/dipstream) stream.
+
+For example, to use the [sounddevice Stream time](https://python-sounddevice.readthedocs.io/en/0.3.15/api/streams.html#sounddevice.Stream.time) as the clock:
 
 ```python
 gui.set_clock(clock=lambda: stream.time)
@@ -131,11 +133,14 @@ The examples and API description above provides an overview of using the preset 
 ### `Presets` module
 
 The presets module provides some basic prompt setup functions. These are all horizontally and vertical centred inside their `parent_frame`.
-- `label(...)` adds a text label to the UI with no user input interactivity.
-- `n_button(...)` adds a text label with a row of n buttons below it. Returns the value the button pressed.
-- `text_entry(...)` adds a text label with a text box below it and a submit button. Returns the string in the text box on submit.
-- `dropdown(...)` adds a text label with a dropdown box below it and a submit button. Returns the string of the selected option on submit.
-- `file_select(...)` adds a text label with a button to open a file selection dialogue. Returns the absolute filepath of the selected file.
+- `label(label: str, ...)` adds a text label to the UI with no user input interactivity.
+- `n_button(label, buttons, ...)` adds a text label with a row of n buttons below it. Returns the value the button pressed.
+    - The `buttons` argument is a list of dicts where each dict defines a button. The format of a button dict is like: `{"label": "Yes", "value": True "keybindings": ["Y", "y"]}` .
+- `text_entry(label, ...)` adds a text label with a text box below it and a submit button. Returns the string in the text box on submit.
+- `dropdown(label, options, ...)` adds a text label with a dropdown box below it and a submit button. The `options` argument should be a list of strings. Returns the string of the selected option on submit.
+- `file_select(label, ...)` adds a text label with a button to open a file selection dialogue. Returns the absolute filepath of the selected file.
+
+The required arguments for the setup function are listed above, but there are optional formatting arguments for each preset (for example to customise font and spacing). See the `presets.py` file for the full signature.
 
 ### Creating custom prompts
 
@@ -157,13 +162,13 @@ The following example uses both a preset and a custom prompt.
 import time
 import tkinter as tk
 
-from quick_tk_gui import ThreadedGUI, presets
+import quick_tk_gui as qtkgui
 
 
 def preset_prompt(prompt, parent_frame: tk.Widget):
     """Create a 3 button input choice prompt using a preset."""
 
-    presets.n_button(
+    qtkgui.presets.n_button(
         prompt,
         parent_frame=parent_frame,
         label="Select a number:",
@@ -238,5 +243,5 @@ def app_logic(gui):
     gui.close()
 
 
-ThreadedGUI(name="Prompt Example", app_logic=app_logic)
+qtkgui.ThreadedGUI(name="Prompt Example", app_logic=app_logic)
 ```
