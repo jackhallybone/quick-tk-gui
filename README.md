@@ -77,7 +77,7 @@ By default, the clock function uses `time.time()`, but this can be changed using
 For example, to use the [sounddevice Stream time](https://python-sounddevice.readthedocs.io/en/0.3.15/api/streams.html#sounddevice.Stream.time) as the clock:
 
 ```python
-gui.set_clock(clock=lambda: stream.time)
+gui.set_clock(lambda: stream.time)
 ```
 
 ## API
@@ -92,7 +92,7 @@ Instantiate using `ThreadedGUI(name, build_ui, app_logic)`, where `build_ui` is 
 - `set_clock(clock_func)` sets the clock function.
 - `add_prompt(setup_func, parent_frame, *args, **kwargs)` adds a new prompt to the UI by calling the setup function with any provided arguments.
     - The setup function could be a `preset` or a custom function (see the example in "Prompt Mechanism" below).
-- `remove(prompt)` removes a prompt from the UI (destroys the UI elements and unbinds events).
+- `remove_prompt(prompt)` removes a prompt from the UI (destroys the UI elements and unbinds events).
 - `clear_prompts()` removes all prompts from the UI (destroys the UI elements and unbinds events).
 
 **Properties:**
@@ -133,12 +133,17 @@ The examples and API description above provides an overview of using the preset 
 ### `Presets` module
 
 The presets module provides some basic prompt setup functions. These are all horizontally and vertical centred inside their `parent_frame`.
-- `label(label: str, ...)` adds a text label to the UI with no user input interactivity.
+- `label(label, ...)` adds a text label to the UI with no user input interactivity.
 - `n_button(label, buttons, ...)` adds a text label with a row of n buttons below it. Returns the value the button pressed.
     - The `buttons` argument is a list of dicts where each dict defines a button. The format of a button dict is like: `{"label": "Yes", "value": True "keybindings": ["Y", "y"]}` .
 - `text_entry(label, ...)` adds a text label with a text box below it and a submit button. Returns the string in the text box on submit.
-- `dropdown(label, options, ...)` adds a text label with a dropdown box below it and a submit button. The `options` argument should be a list of strings. Returns the string of the selected option on submit.
+- `dropdown(label, options, ...)` adds a text label with a dropdown box below it and a submit button.
+    - The `options` argument should be a list of strings. Returns the string of the selected option on submit.
 - `file_select(label, ...)` adds a text label with a button to open a file selection dialogue. Returns the absolute filepath of the selected file.
+
+#### Adding a preset
+
+Use `gui.add_prompt(setup_func, parent_frame, *args, **kwargs)` to add a preset prompt to the UI.
 
 The required arguments for the setup function are listed above, but there are optional formatting arguments for each preset (for example to customise font and spacing). See the `presets.py` file for the full signature.
 

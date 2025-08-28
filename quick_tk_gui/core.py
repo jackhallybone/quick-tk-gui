@@ -220,20 +220,14 @@ class _Prompt:
 
     def submit(self, value: Any):
         """UI callback to submit the response where the type of `value` matching the prompt return type."""
-
-        def _submit():
-            """If the prompt is active (widgets enabled), on submit, set the return values."""
-            self._timestamp.set(
-                self._gui.now
-            )  # take timestamp as close to callback fire as possible
-            if all(
-                [w["state"] == "normal" for w in self._widgets if "state" in w.keys()]
-            ):
-                self._value.set(value)
-                self._event.set()
-
+        ts = self._gui.now # take timestamp as close to the event as possible
         self._must_exist_in_ui()
-        self._gui.run_on_ui_thread(_submit)
+        if all(
+            [w["state"] == "normal" for w in self._widgets if "state" in w.keys()]
+        ):
+            self._timestamp.set(ts)
+            self._value.set(value)
+            self._event.set()
 
     def wait_for_response(
         self, timeout=None, disable=True
