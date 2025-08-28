@@ -40,7 +40,7 @@ class ThreadedGUI:
         """Return a deepcopy where possible, or the original."""
         try:
             return copy.deepcopy(obj)
-        except:
+        except Exception:
             return obj
 
     def run_on_ui_thread(self, func: Callable, *args, **kwargs) -> Any:
@@ -120,9 +120,10 @@ class ThreadedGUI:
     def remove_prompt(self, prompt: "_Prompt"):
         """Remove a prompt from the UI."""
         prompt._must_exist_in_ui()
-        prompt._destroy()
+        prompt.reset()
         with self._lock:
             self._prompts.remove(prompt)
+        prompt._destroy()
 
     def clear_prompts(self):
         """Remove all prompts from the UI."""
@@ -272,6 +273,5 @@ class _Prompt:
             for key in self._keybindings:
                 self._gui.root.unbind(key)
             self._keybindings.clear()
-            self.reset()
 
         self._gui.run_on_ui_thread(_do_destroy)
