@@ -2,6 +2,8 @@ import copy
 import threading
 import time
 import tkinter as tk
+import tkinter.font as tkFont
+from tkinter import ttk
 from typing import Any, Callable
 
 
@@ -13,7 +15,10 @@ class ThreadedGUI:
         name: str,
         app_logic: Callable,
         build_ui: Callable | None = None,
-        min_size: tuple[int, int] = (700, 400),
+        min_size: tuple[int, int] | None = (700, 400),
+        theme: str = "clam",
+        default_font_size: int | None = 14,
+        close_on_ctrl_w: bool = True,
     ):
         """Initialise a ThreadedGUI instance, creating an initial GUI layout and starting the app code."""
 
@@ -21,6 +26,13 @@ class ThreadedGUI:
 
         self.root = tk.Tk()
         self.root.title(name)
+
+        style = ttk.Style(self.root)
+        style.theme_use(theme)
+
+        if default_font_size:
+            default_font = tkFont.nametofont("TkDefaultFont")
+            default_font.configure(size=default_font_size)
 
         self._clock: Callable = time.time
 
@@ -31,7 +43,11 @@ class ThreadedGUI:
 
         threading.Thread(target=app_logic, args=(self,), daemon=True).start()
 
-        self.root.minsize(*min_size)
+        if min_size is not None:
+            self.root.minsize(*min_size)
+
+        if close_on_ctrl_w:
+            self.root.bind("<Control-w>", self.close)
 
         self.root.mainloop()
 
@@ -77,7 +93,7 @@ class ThreadedGUI:
             raise result["error"]
         return result.get("value")
 
-    def close(self):
+    def close(self, event=None):
         """Close the GUI window."""
         self.run_on_ui_thread(self.root.destroy)
 
@@ -95,7 +111,11 @@ class ThreadedGUI:
     # Prompts
 
     def add_prompt(
-        self, setup_func: Callable, parent_frame: tk.Widget, *args, **kwargs
+        self,
+        setup_func: Callable,
+        parent_frame: tk.Widget | ttk.Widget,
+        *args,
+        **kwargs,
     ) -> "_Prompt":
         """Add a prompt to the UI by running it's setup function."""
 
@@ -136,14 +156,14 @@ class ThreadedGUI:
 class _Prompt:
     """A prompt object which contains states and variables for interactivity for the UI."""
 
-    def __init__(self, gui: ThreadedGUI, parent_frame: tk.Widget):
+    def __init__(self, gui: ThreadedGUI, parent_frame: tk.Widget | ttk.Widget):
         """Initialise a _Prompt object, which begins "empty" and is populated by an external setup function."""
         self._gui = gui
         self._parent_frame = parent_frame
         self._event = threading.Event()
         # self._value: tk.Variable = # must be set using self.set_return_type()
         self._timestamp = tk.DoubleVar()
-        self._widgets: set[tk.Widget] = set()
+        self._widgets: set[tk.Widget | ttk.Widget] = set()
         self._keybindings: set[str] = set()
         self._presentation_timestamp: float | None = None
 
@@ -201,12 +221,13 @@ class _Prompt:
 
     def _set_enabled(self, enabled: bool):
         """Set the state for all interactive widgets in the `self._widgets` set."""
-        state = "normal" if enabled else "disabled"
         for widget in self._widgets:
-            try:
-                widget.config(state=state)
-            except tk.TclError:
-                pass
+            if hasattr(widget, "state"):
+                # ttk widget
+                widget.state(["!disabled"] if enabled else ["disabled"])
+            else:
+                # tk widget
+                widget.config(state="normal" if enabled else "disabled")
 
     def enable(self):
         """Enable the interactive widgets in the prompt."""
@@ -218,13 +239,21 @@ class _Prompt:
         self._must_exist_in_ui()
         self._gui.run_on_ui_thread(self._set_enabled, False)
 
+    def _is_enabled(self, widget: tk.Widget | ttk.Widget) -> bool:
+        try:
+            return widget.instate(["!disabled"])
+        except AttributeError:
+            return widget["state"] == "normal"
+
+    @property
+    def is_enabled(self) -> bool:
+        self._must_exist_in_ui()
+        return all(self._is_enabled(w) for w in self._widgets)
+
     def submit(self, value: Any):
         """UI callback to submit the response where the type of `value` matching the prompt return type."""
-        ts = self._gui.now # take timestamp as close to the event as possible
-        self._must_exist_in_ui()
-        if all(
-            [w["state"] == "normal" for w in self._widgets if "state" in w.keys()]
-        ):
+        ts = self._gui.now  # take timestamp as close to the event as possible
+        if self.is_enabled:
             self._timestamp.set(ts)
             self._value.set(value)
             self._event.set()
