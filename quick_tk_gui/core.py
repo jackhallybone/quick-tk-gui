@@ -27,8 +27,8 @@ class ThreadedGUI:
         self.root = tk.Tk()
         self.root.title(name)
 
-        style = ttk.Style(self.root)
-        style.theme_use(theme)
+        self._style = ttk.Style(self.root)
+        self._style.theme_use(theme)
 
         if default_font_size:
             default_font = tkFont.nametofont("TkDefaultFont")
@@ -93,20 +93,24 @@ class ThreadedGUI:
             raise result["error"]
         return result.get("value")
 
-    def close(self, event=None):
-        """Close the GUI window."""
-        self.run_on_ui_thread(self.root.destroy)
-
-    def set_clock(self, clock: Callable):
-        """Set the clock function to use when getting times/timestamp."""
-        with self._lock:
-            self._clock = clock
+    @property
+    def style(self) -> ttk.Style:
+        return self._style
 
     @property
     def now(self) -> float:
         """The current time from the ThreadedGUI clock."""
         with self._lock:
             return self._clock()
+
+    def set_clock(self, clock: Callable):
+        """Set the clock function to use when getting times/timestamp."""
+        with self._lock:
+            self._clock = clock
+
+    def close(self, event=None):
+        """Close the GUI window."""
+        self.run_on_ui_thread(self.root.destroy)
 
     # Prompts
 

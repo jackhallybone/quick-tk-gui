@@ -33,7 +33,7 @@ def build_ui(gui):
 
     # Add a button array prompt to the GUI using the n_button preset UI
     gui.prompt = gui.add_prompt(
-        setup_func=qtkgui.presets.n_button,
+        setup_func=qtkgui.presets.n_button_prompt,
         parent_frame=gui.prompt_frame,
         label="Choose an option:",
         buttons=[
@@ -80,23 +80,51 @@ For example, to use the [sounddevice Stream time](https://python-sounddevice.rea
 gui.set_clock(lambda: stream.time)
 ```
 
+## Style
+
+`ThreadedGUI` uses the `ttk` for [styles and themes](https://tkdocs.com/tutorial/styles.html). The window theme and default font size can be set during init using the `theme` and `default_font_size` arguments.
+
+Styles can be modified from using the `style` attribute. For example, to make all `ttk.Buttons` blue:
+
+```python
+gui.style.configure(
+    "TButton",
+    background="#007acc"
+)
+```
+
+The `presets` module uses `ttk` widgets which can be individually styled by defining a style with an individual name, for example:
+
+```python
+    gui.style.configure(
+        "MyStyle.TButton",
+        background="#007acc"
+    )
+    prompt = gui.add_prompt(
+        setup_func=qtkgui.presets.n_button,
+        ...
+        button_style="MyStyle.TButton"
+    )
+```
+
 ## API
 
 ### `ThreadedGUI`
 
-Instantiate using `ThreadedGUI(name, build_ui, app_logic)`, where `build_ui` is a function which runs on the main thread during init and lays out the initial UI, and `app_logic` is a function which runs on a background thread and handles the ongoing app and interactivity. The `build_ui` function is optional if it acceptable to draw the initial UI after the GUI window opens.
+Instantiate using `ThreadedGUI(name: str, build_ui: Callable, app_logic: Callable, theme: str, default_font_size: int)`, where `build_ui` is a function which runs on the main thread during init and lays out the initial UI, and `app_logic` is a function which runs on a background thread and handles the ongoing app and interactivity. The `build_ui` function is optional if it acceptable to draw the initial UI after the GUI window opens. Optionally, to apply [`ttk` styling](https://tkdocs.com/tutorial/styles.html) using the `theme` and `default_font_size` arguments.
 
 **Methods:**
-- `run_on_ui_thread(function, *args, **kwargs)` schedules a function to run on the main (UI) thread. Additional augments are passed to the scheduled function and any returns are returned. Blocks until the scheduled function completes. Deep-copies arguments where possible for thread safety.
+- `run_on_ui_thread(function: Callable, *args, **kwargs)` schedules a function to run on the main (UI) thread. Additional augments are passed to the scheduled function and any returns are returned. Blocks until the scheduled function completes. Deep-copies arguments where possible for thread safety.
 - `close()` closes the UI window.
-- `set_clock(clock_func)` sets the clock function.
-- `add_prompt(setup_func, parent_frame, *args, **kwargs)` adds a new prompt to the UI by calling the setup function with any provided arguments.
+- `set_clock(clock_func: Callable)` sets the clock function.
+- `add_prompt(setup_func: Callable, parent_frame: tk.Widget | ttk.Widget, *args, **kwargs)` adds a new prompt to the UI by calling the setup function with any provided arguments.
     - The setup function could be a `preset` or a custom function (see the example in "Prompt Mechanism" below).
-- `remove_prompt(prompt)` removes a prompt from the UI (destroys the UI elements and unbinds events).
+- `remove_prompt(prompt: _Prompt)` removes a prompt from the UI (destroys the UI elements and unbinds events).
 - `clear_prompts()` removes all prompts from the UI (destroys the UI elements and unbinds events).
 
 **Properties:**
 - `root` is the `tk.Tk()` instance.
+- `style` is the `ttk.Style(self.root)` instance.
 - `now` is the current time from the clock function.
 
 ### Prompts
@@ -110,13 +138,14 @@ Prompts should **not** be instantiated directly, but by using the `add_prompt()`
 - `reset()` resets the state of the prompt so that another user input can be captured without removing and re-creating it.
 
 *The following methods should only be used in the prompt setup function:*
-- `set_return_type(type)` sets the type of data that the prompt will return.
-- `submit(value)` a callback for binding to widgets or keys which sets the timestamp and value of the user input.
-- `track_interactive_widgets(widget)` adds a widget to the set that can be enabled and disabled.
-- `track_root_keybindings(key)` adds a key name to the set that can be unbound from the root when the prompt is removed.
+- `set_return_type(type: Any)` sets the type of data that the prompt will return.
+- `submit(value: Any)` a callback for binding to widgets or keys which sets the timestamp and value of the user input.
+- `track_interactive_widgets(widget: tk.Widget | ttk.Widget)` adds a widget to the set that can be enabled and disabled.
+- `track_root_keybindings(key: str)` adds a key name to the set that can be unbound from the root when the prompt is removed.
 
 **Properties (readonly):**
-- `presentation_timestamp` is a timestamp taken as close to the visual render as possible.#
+- `is_enabled` is True if the interactive widgets in the prompt are enabled.
+- `presentation_timestamp` is a timestamp taken as close to the visual render as possible.
 
 *The following properties should only be used in the prompt setup function:*
 - `root` is the Tk() root for binding keypresses to.
@@ -125,34 +154,49 @@ Prompts should **not** be instantiated directly, but by using the `add_prompt()`
 
 `ThreadedGUI` can be used as a base for directly using tkinter for UI layout and interactivity. For convenience, the "prompt mechanism" provides a basic way of setting up user input.
 
-Additionally, the `presets` module provides some basic prompts, such as:
- a text label, button input or text input.
+Additionally, the `presets` module provides some basic UI elements and pre-configured prompts, such as: a text label, button input or text input.
 
 The examples and API description above provides an overview of using the preset prompts.
 
 ### `Presets` module
 
-The presets module provides some basic prompt setup functions. These are all horizontally and vertical centred inside their `parent_frame`.
-- `label(label, ...)` adds a text label to the UI with no user input interactivity.
-- `n_button(label, buttons, ...)` adds a text label with a row of n buttons below it. Returns the value the button pressed.
-    - The `buttons` argument is a list of dicts where each dict defines a button. The format of a button dict is like: `{"label": "Yes", "value": True "keybindings": ["Y", "y"]}` .
-- `text_entry(label, ...)` adds a text label with a text box below it and a submit button. Returns the string in the text box on submit.
-- `dropdown(label, options, ...)` adds a text label with a dropdown box below it and a submit button.
-    - The `options` argument should be a list of strings. Returns the string of the selected option on submit.
-- `file_select(label, ...)` adds a text label with a button to open a file selection dialogue. Returns the absolute filepath of the selected file.
+The `presets` module provides functions to create some basic UI elements and some pre-configured setup functions for creating prompts.
+
+The `parent_frame` argument of a preset is the `tk.Widget | ttk.Widget` that is will be placed inside. The preset UIs are placed inside a `centred_frame`.
+
+Presets use `ttk`, and can be styled using the `..._style` arguments.
+
+#### UI Elements
+
+- `centred_frame(parent_frame)` returns a frame who's content will be horizontally and vertically centred inside the `parent_frame`.
+
+#### Pre-Configured Prompts
+
+The pre-configured setup functions below add a prompt to the UI and return a prompt instance.
+
+- `label(parent_frame, label: str, label_style: str)` adds a text label. *It has no user input interactivity, but can be added and removed like a prompt.*
+- `n_button_prompt(parent_frame, label: str, buttons: list[dict], label_style: str, button_style: str, vertical_spacing: int, button_spacing: int, max_buttons_in_row: int)` adds a row or grid of n buttons with a label above. Response return value is based on the button "value" type.
+    - the `buttons` argument must be a list of dicts defining the buttons, where the format is like `{"label": str, "value": Any, "keybindings": list[str]}`. All the buttons must have the same "value" type.
+- `text_entry_prompt(parent_frame, label: str, button: dict, entry_prefill: str, label_style: str, entry_style: str, button_style: str, vertical_spacing: int)` adds a text entry field (optionally prefilled with text), with a label above and a submit button below. Response return value is str.
+    - the `button` argument must be a dict of format like `{"label": str, "keybindings": list[str]}`
+- `dropdown_prompt(parent_frame, label: str, options: list[str], button: dict, label_style: str, dropdown_style: str, button_style: str, vertical_spacing: int)` adds a dropdown entry field displaying the `options` list, with a label above and a submit button below. Response return value is one of the `options` str.
+    - the `button` argument must be a dict of format like `{"label": str, "keybindings": list[str]}`
+- `file_select_prompt(parent_frame, label: str, button: dict, filetypes: list[tuple[str, str]], label_style: str, button_style: str, vertical_spacing: int)` adds a button which opens a file selection dialogue, with a label above. Response return value is a str filepath.
+    - the `button` argument must be a dict of format like `{"label": str, "keybindings": list[str]}`
+
+*The setup functions above also accept a prompt instance as their first argument, but this is handled internally during `gui.add(...)`.*
+
 
 #### Adding a preset
 
 Use `gui.add_prompt(setup_func, parent_frame, *args, **kwargs)` to add a preset prompt to the UI.
-
-The required arguments for the setup function are listed above, but there are optional formatting arguments for each preset (for example to customise font and spacing). See the `presets.py` file for the full signature.
 
 ### Creating custom prompts
 
 It's possible to create user input from scratch without using the prompt mechanism. However, custom prompts can be connected to the underlying mechanism which could simplify the process.
 
 When creating a custom prompt **the setup function must**:
-- Accept an instance of the prompt as an argument (this is init'd and passed by the GUI `add_prompt(...)` function).
+- Accept an instance of the prompt as an argument (the prompt instance is created internally during `gui.add(...)`).
 - Set the return type of the prompt using `set_return_type(type)`.
 - Bind user input events (buttons, keypresses, etc) to the `submit(value)` callback, where the value argument is of the correct return type.
 - Keep track of all interactive widgets (for enabling and disabling the prompt) using `track_interactive_widget(widget)`.
@@ -173,7 +217,7 @@ import quick_tk_gui as qtkgui
 def preset_prompt(prompt, parent_frame: tk.Widget):
     """Create a 3 button input choice prompt using a preset."""
 
-    qtkgui.presets.n_button(
+    qtkgui.presets.n_button_prompt(
         prompt,
         parent_frame=parent_frame,
         label="Select a number:",
